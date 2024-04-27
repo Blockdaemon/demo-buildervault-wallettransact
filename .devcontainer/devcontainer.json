@@ -1,0 +1,16 @@
+{
+	"image": "mcr.microsoft.com/devcontainers/go:1.22",
+    //"forwardPorts": [3000],
+    "customizations": {
+      // Configure properties specific to VS Code.
+      "vscode": {
+        // Add the IDs of extensions you want installed when the container is created.
+        "extensions": [
+            "ms-vscode.go",
+            "markdown.showPreview",
+            "bierner.markdown-mermaid",
+            "aaron-bond.better-comments"
+        ]
+      }
+    }
+}
