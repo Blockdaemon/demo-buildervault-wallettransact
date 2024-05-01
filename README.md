@@ -1,14 +1,15 @@
 
-# Ethereum transaction signing with Builder Vault
+# Ethereum transaction signing with Builder Vault + WalletTransact
 
 ```mermaid
 sequenceDiagram
     autonumber
     actor client as client application
-    participant Blockchain as Blockchain<br> REST API
+    participant Blockchain as Blockdaemon Wallet Transact<br> REST API
     box Builder Vault
       participant TSM1 as MPC Wallet <br>(private key share 1)
       participant TSM2 as MPC Wallet <br>(private key share 2)
+      participant TSM3 as MPC Wallet <br>(private key share 3)
     end
     #note over client,TSM2: Create wallet
     opt
@@ -23,16 +24,17 @@ sequenceDiagram
     TSM1 -->> client: return partial signature
     client ->> TSM2: request signature (unsigned tx hash)
     TSM2 -->> client: return partial signature
+    client ->> TSM3: request signature (unsigned tx hash)
+    TSM3 -->> client: return partial signature
     client ->> client: combine partial signatures
     client ->> Blockchain: broadcast signed tx<br>(signed tx)
 ```
 
 ### Prerequisites
-  - Go https://go.dev/doc/install
-  - IDE recommended
+  - Go https://go.dev/doc/install or use [code-spaces](https://codespaces.new/Blockdaemon/demo-buildervault-wallettransact?quickstart=1)
   - Register for a demo Builder Vault tenant: https://www.blockdaemon.com/get-started/builder-vault-sandbox-registration
   - Download SDK bundle provided in registration email (extract authentication certificates)
-  - Place Builder Vault authentication certificates in working directory
+  - Place Builder Vault authentication certificate key-pair in working directory
   - Register for Blockdaemon API Suite Free key and set as environment variable ACCESS_TOKEN
 
 
@@ -56,7 +58,7 @@ go run 2-craft-transaction/main.go
   - (optional) decode the raw unsigned transaction to inspect the Blockdaemon provided attributes (https://rawtxdecode.in)
 
 
-### Step 3. Sign transaction with BuilderVault wallet library
+### Step 3. Sign transaction with BuilderVault wallet
   - set the Builder Vault Master Key ID to be used for signing (created in step 1)
   - set the unsigned transaction hash to be signed by Builder Vault (created in step 2)
 ```shell

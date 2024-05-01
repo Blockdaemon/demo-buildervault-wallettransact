@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"math/big"
 	"net/http"
 	"os"
@@ -16,7 +15,8 @@ import (
 
 var protocol = "ethereum"
 var network = "sepolia"
-var url = "https://svc.blockdaemon.com/tx/v1/" + protocol + "-" + network + "/"
+var chainID = big.NewInt(11155111)
+var url = "https://svc.blockdaemon.com/universal/v1/" + protocol + "/" + network + "/"
 
 func main() {
 	// ! Set the transactionHashSignature created in step 4
@@ -41,44 +41,37 @@ func main() {
 
 	// Deserialize the transactionHashSignature
 	transactionHashSignatureBytes, _ := hex.DecodeString(transactionHashSignature)
-	chainID := big.NewInt(11155111) // ToDo get chain ID from unsignedTX or onchain
 
-	// ! Combine the unsigned transaction and the signature to create a signed transaction
-	//signer := types.NewEIP155Signer(chainID)	// Legacy signer pre eip1559
-	//signedTx, err := unsignedTx.WithSignature(signer, transactionHashSignatureBytes)
+	// * Combine the unsigned transaction and the signature to create a signed transaction
 	signedTx, err := unsignedTx.WithSignature(types.NewLondonSigner(chainID), transactionHashSignatureBytes)
 	if err != nil {
 		panic(err)
 	}
 
-	// ! Serialize the signed transaction for broadcast
+	// * Serialize the signed transaction for broadcast
 	raw, err := signedTx.MarshalBinary()
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("\nRaw signed transaction (RLP encoded): %x", raw)
+	fmt.Printf("\nRaw signed tx (RLP encoded): %x\n", raw)
 
-	// ! Broadcast the signed transaction to the blockchain
-	requestBody := struct {
-		ID string `json:"tx"`
+	// * Broadcast the signed transaction to the blockchain https://docs.blockdaemon.com/reference/txsend
+	sendRequest := struct {
+		TX string `json:"tx"`
 	}{
-		ID: hex.EncodeToString(raw),
+		TX: hex.EncodeToString(raw),
 	}
 
-	reqBodyBytes, err := json.Marshal(requestBody)
+	reqBody, err := json.Marshal(sendRequest)
 	if err != nil {
-		fmt.Println(err)
-		return
+		panic(err)
 	}
 
-	req, _ := http.NewRequest("POST", url+"send", bytes.NewReader(reqBodyBytes))
-	req.Header.Add("X-API-Key", apiKey)
-
-	res, _ := http.DefaultClient.Do(req)
+	res, _ := http.Post(url+"tx/send?apiKey="+apiKey, "application/json", bytes.NewReader(reqBody))
 	resbodyBytes, _ := io.ReadAll(res.Body)
 	defer res.Body.Close()
 	if res.StatusCode != 200 {
-		log.Fatal("HTTP request ", res.StatusCode, " error:", http.StatusText(res.StatusCode), "n/", string(resbodyBytes))
+		panic(fmt.Errorf("HTTP request %d error: %sn/ %s", res.StatusCode, http.StatusText(res.StatusCode), resbodyBytes))
 	} else {
 		fmt.Printf("\nBroadcasted transaction hash: https://"+network+".etherscan.io/tx/%s\n", signedTx.Hash().String())
 	}

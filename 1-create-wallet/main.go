@@ -51,8 +51,6 @@ func main() {
 		}
 	}
 
-	// Generate an ECDSA master key
-
 	// The public keys of the other players to encrypt MPC protocol data end-to-end
 	playerB64Pubkeys := []string{
 		"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEtDFBfanInAMHNKKDG2RW/DiSnYeI7scVvfHIwUIRdbPH0gBrsilqxlvsKZTakN8om/Psc6igO+224X8T0J9eMg==",
@@ -60,6 +58,7 @@ func main() {
 		"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEBaHCIiViexaVaPuER4tE6oJE3IBA0U//GlB51C1kXkT07liVc51uWuYk78wi4e1unxC95QbeIfnDCG2i43fW3g==",
 	}
 
+	// * Generate an ECDSA master key https://builder-vault-tsm.docs.blockdaemon.com/docs/getting-started-demo-tsm-golang
 	playerPubkeys := map[int][]byte{}
 	playerIds := []int{0, 1, 2}
 	// iterate over other players public keys and convert them
@@ -100,7 +99,7 @@ func main() {
 	masterKeyID := masterKeyIDs[0]
 	fmt.Println("Builder Vault master key ID:", masterKeyID)
 
-	// ! Get the public key for the Ethereum derived key chain path m/44/60/0/0
+	// * Get the public key for the Ethereum derived key chain path m/44/60/0/0
 	chainPath := []uint32{44, 60, 0, 0}
 	pkixPublicKeys := make([][]byte, len(clients))
 	for i, client := range clients {

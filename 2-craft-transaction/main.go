@@ -5,7 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"log"
+	"math"
 	"math/big"
 	"net/http"
 	"os"
@@ -15,52 +15,11 @@ import (
 
 var protocol = "ethereum"
 var network = "sepolia"
+var chainID = big.NewInt(11155111)
 var url = "https://svc.blockdaemon.com/universal/v1/" + protocol + "/" + network + "/"
-var address = "..."            // ! Set the wallet address created in step 1
-var destinationAddress = "..." // ! Optional - override destination address which defaults back to faucet
-
-type Account []struct {
-	Currency struct {
-		AssetPath string `json:"asset_path"`
-		Symbol    string `json:"symbol"`
-		Name      string `json:"name"`
-		Decimals  int    `json:"decimals"`
-		Type      string `json:"type"`
-	} `json:"currency"`
-	ConfirmedBalance string `json:"confirmed_balance"`
-	PendingBalance   string `json:"pending_balance"`
-	ConfirmedNonce   int    `json:"confirmed_nonce"`
-	ConfirmedBlock   int    `json:"confirmed_block"`
-}
-
-type Transaction struct {
-	Protocol struct {
-		Ethereum struct {
-			MaxFeePerGas         int64 `json:"maxFeePerGas"`
-			MaxPriorityFeePerGas int64 `json:"maxPriorityFeePerGas"`
-		} `json:"ethereum"`
-	} `json:"protocol"`
-	From string `json:"from"`
-	To   []struct {
-		Destination string `json:"destination"`
-		Amount      string `json:"amount"`
-	} `json:"to"`
-}
-
-func getBalance(address, apiKey string) string {
-	req, _ := http.NewRequest("GET", url+"account/"+address, nil)
-	req.Header.Add("X-API-Key", apiKey)
-
-	res, _ := http.DefaultClient.Do(req)
-	defer res.Body.Close()
-
-	var account Account
-	if err := json.NewDecoder(res.Body).Decode(&account); err != nil {
-		log.Fatal(err)
-	}
-
-	return account[0].ConfirmedBalance
-}
+var address = "..."                                                   // ! Set the wallet address created in step 1
+var destinationAddress = "0x6Cc9397c3B38739daCbfaA68EaD5F5D77Ba5F455" // Optional - override destination address which defaults back to faucet
+var amount = "0.003"                                                  // Set the amount to send in ETH
 
 func main() {
 
@@ -70,64 +29,73 @@ func main() {
 		panic(fmt.Errorf("env variable 'ACCESS_TOKEN' must be set"))
 	}
 
-	confirmedBalance := getBalance(address, apiKey)
-	fmt.Println("Balance at account:", address, "=", (confirmedBalance), "wei")
+	// * Get account balance https://docs.blockdaemon.com/reference/getlistofbalancesbyaddress
+	res, err := http.Get(url + "account/" + address + "?apiKey=" + apiKey)
+	if err != nil {
+		panic(err)
+	}
+	defer res.Body.Close()
 
-	// Post unsigned transaction request to send 0.003ETH to destinationAddress
-	request := Transaction{
+	// Parse account balance response
+	var account []struct {
+		Currency struct {
+			Symbol   string `json:"symbol"`
+			Decimals int    `json:"decimals"`
+		} `json:"currency"`
+		ConfirmedBalance string `json:"confirmed_balance"`
+	}
+	if err := json.NewDecoder(res.Body).Decode(&account); err != nil {
+		panic(err)
+	}
+
+	// Print account balance in float
+	balanceInt, _ := new(big.Int).SetString(account[0].ConfirmedBalance, 10)
+	balanceFloat := new(big.Float).SetInt(balanceInt)
+	balanceFloat.Mul(balanceFloat, big.NewFloat(math.Pow10(-account[0].Currency.Decimals)))
+	fmt.Printf("Balance at account %s: %s %s\n", address, balanceFloat.Text('f', 18), account[0].Currency.Symbol)
+
+	// * Transaction request - MaxFeePerGas and MaxPriorityFeePerGas are estimated automatically https://docs.blockdaemon.com/reference/txcreate
+	txRequest := struct {
+		From string `json:"from"`
+		To   []struct {
+			Destination string `json:"destination"`
+			Amount      string `json:"amount"`
+		} `json:"to"`
+	}{
+		From: address,
 		To: []struct {
 			Destination string `json:"destination"`
 			Amount      string `json:"amount"`
 		}{
-			{
-				Destination: destinationAddress,
-				Amount:      "0.003",
-			},
-		},
-		From: address,
-		Protocol: struct {
-			Ethereum struct {
-				MaxFeePerGas         int64 "json:\"maxFeePerGas\""
-				MaxPriorityFeePerGas int64 "json:\"maxPriorityFeePerGas\""
-			} `json:"ethereum"`
-		}{
-			Ethereum: struct {
-				MaxFeePerGas         int64 "json:\"maxFeePerGas\""
-				MaxPriorityFeePerGas int64 "json:\"maxPriorityFeePerGas\""
-			}{
-				MaxFeePerGas:         200,
-				MaxPriorityFeePerGas: 100,
-			},
+			{Destination: destinationAddress, Amount: amount},
 		},
 	}
 
-	reqBody, err := json.Marshal(request)
+	reqBody, err := json.Marshal(txRequest)
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 
-	req, err := http.NewRequest("POST", url+"tx/create", bytes.NewReader(reqBody))
+	// Post unsigned transaction request
+	res, err = http.Post(url+"tx/create?apiKey="+apiKey, "application/json", bytes.NewReader(reqBody))
 	if err != nil {
-		log.Fatal(err)
-	}
-	req.Header.Add("X-API-Key", apiKey)
-
-	res, err := http.DefaultClient.Do(req)
-	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 	defer res.Body.Close()
 
+	// Check HTTP status code
 	if res.StatusCode != http.StatusOK {
-		log.Fatalf("HTTP request %d %s", res.StatusCode, http.StatusText(res.StatusCode))
+		panic(fmt.Errorf("invalid status code:%d %s", res.StatusCode, http.StatusText(res.StatusCode)))
 	}
 
+	// Parse unsigned transaction response
 	var response struct {
 		UnsignedTx string `json:"unsigned_tx"`
 	}
 	if err := json.NewDecoder(res.Body).Decode(&response); err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
+	fmt.Printf("Raw unsigned tx: %s\n", response.UnsignedTx)
 
 	// Deserialize the rawUnsignedTransaction
 	unsignedTx := &types.Transaction{}
@@ -136,9 +104,8 @@ func main() {
 		panic(err)
 	}
 
-	// create a NewLondonSigner for EIP 1559 transactions
-	chainID := big.NewInt(11155111)
-	signer := types.NewLondonSigner(chainID)
-	fmt.Printf("Raw unsigned tx hash with NewLondonSigner: %s\n", hex.EncodeToString(signer.Hash(unsignedTx).Bytes()))
+	// * create a NewLondonSigner for EIP 1559 transactions
+	signer := types.NewCancunSigner(chainID)
+	fmt.Printf("Raw unsigned NewCancunSigner tx hash: %s\n", hex.EncodeToString(signer.Hash(unsignedTx).Bytes()))
 
 }

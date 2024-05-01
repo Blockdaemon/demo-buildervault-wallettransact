@@ -22,10 +22,10 @@ var serverMtlsPublicKeys = map[int]string{
 
 func main() {
 
-	// ! Specify the Builder Vailt TSM master key, created in step 1, to sign via the derived wallet chain path m/44/51/0/0
+	// ! Specify the Builder Vailt TSM master key, created in step 1, to sign via the derived wallet chain path m/44/60/0/0
 	masterKeyID := "..."
 
-	// ! Specify the NewLondonSigner unsigned transaction hash created in step 2
+	// ! Specify the NewCancunSigner unsigned transaction hash created in step 2
 	unsignedTxHash := "..."
 
 	// Decode server public keys to bytes for use in TLS client authentication
@@ -58,7 +58,6 @@ func main() {
 		}
 	}
 
-	// ToDo: see why static node indices are not sufficient and why dynamic public keys are needed
 	// The public keys of the other players to encrypt MPC protocol data end-to-end
 	playerB64Pubkeys := []string{
 		"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEtDFBfanInAMHNKKDG2RW/DiSnYeI7scVvfHIwUIRdbPH0gBrsilqxlvsKZTakN8om/Psc6igO+224X8T0J9eMg==",
@@ -78,11 +77,10 @@ func main() {
 	}
 
 	chainPath := []uint32{44, 60, 0, 0}
-	//! convert hex string to bytes
+	// convert hex string to bytes
 	unsignedTxHashBytes, _ := hex.DecodeString(unsignedTxHash)
 	partialSignaturesLock := sync.Mutex{}
 	partialSignatures := make([][]byte, 0)
-	//sessionConfig := tsm.NewStaticSessionConfig(tsm.GenerateSessionID(),3)
 	Players := []int{0, 1, 2}
 	sessionConfig := tsm.NewSessionConfig(tsm.GenerateSessionID(), Players, playerPubkeys)
 	ctx := context.Background()
@@ -115,5 +113,5 @@ func main() {
 	copy(sigBytes[0:32], signature.R())
 	copy(sigBytes[32:64], signature.S())
 	sigBytes[64] = byte(signature.RecoveryID())
-	fmt.Println("TX hash signature:", hex.EncodeToString(sigBytes))
+	fmt.Println("tx hash signature:", hex.EncodeToString(sigBytes))
 }
