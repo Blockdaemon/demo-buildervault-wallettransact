@@ -27,7 +27,7 @@ sequenceDiagram
     client ->> TSM3: request signature (unsigned tx hash)
     TSM3 -->> client: return partial signature
     client ->> client: combine partial signatures
-    client ->> Blockchain: broadcast signed tx<br>(signed tx)
+    client ->> Blockchain: compile unsigned tx with signature and broadcast<br>(unsigned tx, signature, public key)
 ```
 
 ### Prerequisites
@@ -42,6 +42,7 @@ sequenceDiagram
 ```shell
 go run 1-create-wallet/main.go
 ```
+  - note the new Ethereum Wallet public key (to be used for future signing)
   - note the new Ethereum Wallet address and fund it with Sepolia ETH https://sepolia-faucet.pk910.de
   - note the Builder Vault Master Key ID (to be used for future signing)
 
@@ -68,8 +69,9 @@ go run 3-sign-transaction/main.go
 
 
 ### Step 4. Broadcast signed raw transaction
-  - set the transaction signature hash (created in step 3)
+  - set the wallet compressed public key (created in step 1)
   - set the raw unsigned transaction (created in step 2)
+  - set the transaction signature hash (created in step 3)
 ```shell
 go run 4-broadcast-signed-transaction/main.go
 ```

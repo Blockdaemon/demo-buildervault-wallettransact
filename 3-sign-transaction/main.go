@@ -3,10 +3,12 @@ package main
 import (
 	"context"
 	"crypto/x509"
+	"encoding/asn1"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/pem"
 	"fmt"
+	"math/big"
 	"sync"
 
 	"golang.org/x/sync/errgroup"
@@ -25,7 +27,7 @@ func main() {
 	// ! Specify the Builder Vailt TSM master key, created in step 1, to sign via the derived wallet chain path m/44/60/0/0
 	masterKeyID := "..."
 
-	// ! Specify the NewCancunSigner unsigned transaction hash created in step 2
+	// ! Specify the NewLondonSigner unsigned transaction hash created in step 2
 	unsignedTxHash := "..."
 
 	// Decode server public keys to bytes for use in TLS client authentication
@@ -113,5 +115,22 @@ func main() {
 	copy(sigBytes[0:32], signature.R())
 	copy(sigBytes[32:64], signature.S())
 	sigBytes[64] = byte(signature.RecoveryID())
-	fmt.Println("tx hash signature:", hex.EncodeToString(sigBytes))
+	fmt.Println("Tx hash signature:", hex.EncodeToString(sigBytes))
+
+	// Construct signature in ASN.1 DER format
+	derSignature := struct {
+		R, S *big.Int
+		V    int
+	}{
+		R: new(big.Int).SetBytes(signature.R()),
+		S: new(big.Int).SetBytes(signature.S()),
+		V: signature.RecoveryID(),
+	}
+
+	// Marshal the structure to ASN.1 DER
+	der, err := asn1.Marshal(derSignature)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("Tx hash signature (DER encoded):", hex.EncodeToString(der))
 }

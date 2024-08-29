@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"math/big"
 	"net/http"
 	"os"
 
@@ -15,15 +14,17 @@ import (
 
 var protocol = "ethereum"
 var network = "sepolia"
-var chainID = big.NewInt(11155111)
-var url = "https://svc.blockdaemon.com/universal/v1/" + protocol + "/" + network + "/"
+var url = "https://svc.blockdaemon.com"
 
 func main() {
-	// ! Set the transactionHashSignature created in step 4
-	transactionHashSignature := "..."
+	// ! Set the wallet public keu created in step 1
+	walletPublicKey := "..."
 
-	// ! Set the rawUnsignedTransaction created in step 3
+	// ! Set the rawUnsignedTransaction created in step 2
 	rawUnsignedTransaction := "..."
+
+	// ! Set the DER transactionHashSignature created in step 3
+	transactionHashSignature := "..."
 
 	// Access token is required
 	apiKey := os.Getenv("ACCESS_TOKEN")
@@ -39,41 +40,41 @@ func main() {
 		panic(err)
 	}
 
-	// Deserialize the transactionHashSignature
-	transactionHashSignatureBytes, _ := hex.DecodeString(transactionHashSignature)
-
-	// * Combine the unsigned transaction and the signature to create a signed transaction
-	signedTx, err := unsignedTx.WithSignature(types.NewLondonSigner(chainID), transactionHashSignatureBytes)
-	if err != nil {
-		panic(err)
-	}
-
-	// * Serialize the signed transaction for broadcast
-	raw, err := signedTx.MarshalBinary()
-	if err != nil {
-		panic(err)
-	}
-	fmt.Printf("\nRaw signed tx (RLP encoded): %x\n", raw)
-
-	// * Broadcast the signed transaction to the blockchain https://docs.blockdaemon.com/reference/txsend
-	sendRequest := struct {
-		TX string `json:"tx"`
+	// * Compile the unsigned tx with the signatureand broadcast to the blockchain https://docs.blockdaemon.com/reference/txcompileandsend-txapi
+	txRequest := struct {
+		Unsigned_tx string `json:"unsigned_tx"`
+		Signature   string `json:"signature"`
+		Public_key  string `json:"public_key"`
 	}{
-		TX: hex.EncodeToString(raw),
+		Unsigned_tx: rawUnsignedTransaction,
+		Signature:   transactionHashSignature,
+		Public_key:  walletPublicKey,
 	}
 
-	reqBody, err := json.Marshal(sendRequest)
+	reqBody, err := json.Marshal(txRequest)
 	if err != nil {
 		panic(err)
 	}
 
-	res, _ := http.Post(url+"tx/send?apiKey="+apiKey, "application/json", bytes.NewReader(reqBody))
+	res, err := http.Post(url+"/tx/v1/"+protocol+"-"+network+"/compile_and_send?apiKey="+apiKey, "application/json", bytes.NewReader(reqBody))
 	resbodyBytes, _ := io.ReadAll(res.Body)
-	defer res.Body.Close()
-	if res.StatusCode != 200 {
-		panic(fmt.Errorf("HTTP request %d error: %sn/ %s", res.StatusCode, http.StatusText(res.StatusCode), resbodyBytes))
-	} else {
-		fmt.Printf("\nBroadcasted transaction hash: https://"+network+".etherscan.io/tx/%s\n", signedTx.Hash().String())
+	if err != nil {
+		panic(err)
 	}
+	defer res.Body.Close()
+
+	// Check HTTP status code
+	if res.StatusCode != http.StatusOK {
+		panic(fmt.Errorf("invalid status code:%d %s %s", res.StatusCode, http.StatusText(res.StatusCode), resbodyBytes))
+	}
+
+	// Parse broadcasted transaction response
+	var response struct {
+		ID string `json:"id"`
+	}
+	if err := json.NewDecoder(res.Body).Decode(&response); err != nil {
+		panic(err)
+	}
+	fmt.Printf("Broadcasted transaction hash: https://"+network+".etherscan.io/tx/%s\n", response.ID)
 
 }

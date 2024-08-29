@@ -15,11 +15,10 @@ import (
 
 var protocol = "ethereum"
 var network = "sepolia"
-var chainID = big.NewInt(11155111)
-var url = "https://svc.blockdaemon.com/universal/v1/" + protocol + "/" + network + "/"
+var url = "https://svc.blockdaemon.com"
 var address = "..."                                                   // ! Set the wallet address created in step 1
-var destinationAddress = "0x6Cc9397c3B38739daCbfaA68EaD5F5D77Ba5F455" // Optional - override destination address which defaults back to faucet
-var amount = "0.003"                                                  // Set the amount to send in ETH
+var destinationAddress = "0x52b09e2c73849B25F9b0328e2d4b444e9bd1EF30" // Optional - override destination address which defaults back to faucet
+var amount = "0.001"                                                  // Set the amount to send in ETH
 
 func main() {
 
@@ -30,7 +29,7 @@ func main() {
 	}
 
 	// * Get account balance https://docs.blockdaemon.com/reference/getlistofbalancesbyaddress
-	res, err := http.Get(url + "account/" + address + "?apiKey=" + apiKey)
+	res, err := http.Get(url + "/universal/v1/" + protocol + "/" + network + "/account/" + address + "?apiKey=" + apiKey)
 	if err != nil {
 		panic(err)
 	}
@@ -54,21 +53,15 @@ func main() {
 	balanceFloat.Mul(balanceFloat, big.NewFloat(math.Pow10(-account[0].Currency.Decimals)))
 	fmt.Printf("Balance at account %s: %s %s\n", address, balanceFloat.Text('f', 18), account[0].Currency.Symbol)
 
-	// * Transaction request - MaxFeePerGas and MaxPriorityFeePerGas are estimated automatically https://docs.blockdaemon.com/reference/txcreate
+	// * Transaction request - MaxFeePerGas and MaxPriorityFeePerGas are estimated automatically https://docs.blockdaemon.com/reference/txcreate-txapi
 	txRequest := struct {
-		From string `json:"from"`
-		To   []struct {
-			Destination string `json:"destination"`
-			Amount      string `json:"amount"`
-		} `json:"to"`
+		From  string `json:"from"`
+		To    string `json:"to"`
+		Value string `json:"value"`
 	}{
-		From: address,
-		To: []struct {
-			Destination string `json:"destination"`
-			Amount      string `json:"amount"`
-		}{
-			{Destination: destinationAddress, Amount: amount},
-		},
+		From:  address,
+		To:    destinationAddress,
+		Value: amount,
 	}
 
 	reqBody, err := json.Marshal(txRequest)
@@ -77,7 +70,7 @@ func main() {
 	}
 
 	// Post unsigned transaction request
-	res, err = http.Post(url+"tx/create?apiKey="+apiKey, "application/json", bytes.NewReader(reqBody))
+	res, err = http.Post(url+"/tx/v1/"+protocol+"-"+network+"/create?apiKey="+apiKey, "application/json", bytes.NewReader(reqBody))
 	if err != nil {
 		panic(err)
 	}
@@ -104,8 +97,8 @@ func main() {
 		panic(err)
 	}
 
-	// * create a NewLondonSigner for EIP 1559 transactions
-	signer := types.NewCancunSigner(chainID)
-	fmt.Printf("Raw unsigned NewCancunSigner tx hash: %s\n", hex.EncodeToString(signer.Hash(unsignedTx).Bytes()))
+	// * create a NewLondonSigner EIP1559 transaction type hash
+	signer := types.NewLondonSigner(unsignedTx.ChainId())
+	fmt.Printf("Raw unsigned NewLondonSigner tx hash: %s\n", hex.EncodeToString(signer.Hash(unsignedTx).Bytes()))
 
 }

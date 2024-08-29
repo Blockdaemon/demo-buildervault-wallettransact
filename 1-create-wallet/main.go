@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/pem"
 	"fmt"
 
@@ -110,8 +111,14 @@ func main() {
 		}
 	}
 
+	publicKeyBytes, err := tsmutils.PKIXPublicKeyToCompressedPoint(pkixPublicKeys[0])
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("Ethereum chain path m/44/60/0/0 derived wallet compressed public key:", hex.EncodeToString(publicKeyBytes))
+
 	// Convert the public key into an Ethereum address
-	publicKeyBytes, err := tsmutils.PKIXPublicKeyToUncompressedPoint(pkixPublicKeys[0])
+	publicKeyBytes, err = tsmutils.PKIXPublicKeyToUncompressedPoint(pkixPublicKeys[0])
 	if err != nil {
 		panic(err)
 	}
