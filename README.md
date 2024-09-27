@@ -30,6 +30,9 @@ sequenceDiagram
     client ->> Blockchain: compile unsigned tx with signature and broadcast<br>(unsigned tx, signature, public key)
 ```
 
+### Watch the video
+[![Watch the video](https://img.youtube.com/vi/irgfKhJVq6Q/3.jpg)](https://youtu.be/irgfKhJVq6Q)
+
 ### Prerequisites
   - Go https://go.dev/doc/install or use [code-spaces](https://codespaces.new/Blockdaemon/demo-buildervault-wallettransact?quickstart=1)
   - Register for a demo Builder Vault tenant: https://www.blockdaemon.com/get-started/builder-vault-sandbox-registration

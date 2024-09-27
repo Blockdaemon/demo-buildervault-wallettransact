@@ -2,14 +2,12 @@ package main
 
 import (
 	"bytes"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
-
-	"github.com/ethereum/go-ethereum/core/types"
+	"time"
 )
 
 var protocol = "ethereum"
@@ -32,14 +30,6 @@ func main() {
 		panic(fmt.Errorf("env variable 'ACCESS_TOKEN' must be set"))
 	}
 
-	// Deserialize the rawUnsignedTransaction
-	unsignedTx := &types.Transaction{}
-	unsignedTxBytes, _ := hex.DecodeString(rawUnsignedTransaction)
-	err := unsignedTx.UnmarshalBinary(unsignedTxBytes)
-	if err != nil {
-		panic(err)
-	}
-
 	// * Compile the unsigned tx with the signatureand broadcast to the blockchain https://docs.blockdaemon.com/reference/txcompileandsend-txapi
 	txRequest := struct {
 		Unsigned_tx string `json:"unsigned_tx"`
@@ -57,16 +47,10 @@ func main() {
 	}
 
 	res, err := http.Post(url+"/tx/v1/"+protocol+"-"+network+"/compile_and_send?apiKey="+apiKey, "application/json", bytes.NewReader(reqBody))
-	resbodyBytes, _ := io.ReadAll(res.Body)
 	if err != nil {
 		panic(err)
 	}
 	defer res.Body.Close()
-
-	// Check HTTP status code
-	if res.StatusCode != http.StatusOK {
-		panic(fmt.Errorf("invalid status code:%d %s %s", res.StatusCode, http.StatusText(res.StatusCode), resbodyBytes))
-	}
 
 	// Parse broadcasted transaction response
 	var response struct {
@@ -76,5 +60,16 @@ func main() {
 		panic(err)
 	}
 	fmt.Printf("Broadcasted transaction hash: https://"+network+".etherscan.io/tx/%s\n", response.ID)
+
+	// * Get the number of confirmations for the transaction https://docs.blockdaemon.com/reference/gettxconfirmations
+	fmt.Printf("Sleeping for 60s before checking confirmations...\n")
+	time.Sleep(80 * time.Second)
+	res, err = http.Get(url + "/universal/v1/" + protocol + "/" + network + "/tx/" + response.ID + "/confirmations?apiKey=" + apiKey)
+	resbodyBytes, _ := io.ReadAll(res.Body)
+	if err != nil {
+		panic(err)
+	}
+	defer res.Body.Close()
+	fmt.Println(string(resbodyBytes))
 
 }
